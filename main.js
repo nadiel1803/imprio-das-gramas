@@ -5,108 +5,172 @@ import StatCard from './StatCard.js';
 // Registrar o custom element
 customElements.define('stat-card', StatCard);
 
-/**
- * Formata um número como moeda brasileira.
- * @param {number} value O número a ser formatado.
- * @returns {string}
- */
-const formatCurrency = (value) => {
-    return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-};
+// --- FUNÇÕES UTILITÁRIAS ---
+const formatCurrency = (value) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const formatDate = (timestamp) => timestamp ? timestamp.toDate().toLocaleDateString('pt-BR') : 'Data inválida';
+
+// --- FUNÇÕES DE RENDERIZAÇÃO DE PÁGINA ---
 
 /**
- * Busca os dados do Firestore e renderiza o conteúdo do Dashboard.
+ * Renderiza o conteúdo do Dashboard.
  * @param {HTMLElement} contentElement O elemento onde o conteúdo será renderizado.
  */
 const renderDashboard = async (contentElement) => {
-    // 1. Define o HTML base com os placeholders de carregamento
     contentElement.innerHTML = `
-        <div class="page-header">
-            <h2>Dashboard</h2>
-            <div class="header-actions">
-                <button class="btn btn-primary">
-                    <span class="material-symbols-outlined">add</span>
-                    Novo Pedido
-                </button>
-            </div>
-        </div>
+        <div class="page-header"><h2>Dashboard</h2></div>
         <div class="stats-grid">
             <stat-card id="renda-mensal" icon="payments" title="Renda Mensal" value="--"></stat-card>
             <stat-card id="pedidos-dia" icon="receipt_long" title="Pedidos no Dia" value="--"></stat-card>
-            <stat-card id="total-clientes" icon="groups" title="Total de Clientes" value="315"></stat-card> 
+            <stat-card id="total-clientes" icon="groups" title="Total de Clientes" value="--"></stat-card>
             <stat-card id="ticket-medio" icon="trending_up" title="Ticket Médio" value="--"></stat-card>
         </div>
         <div class="content-section">
             <h3 class="section-title">Pedidos Recentes</h3>
             <table class="responsive-table">
-                <thead>
-                    <tr><th>Cliente</th><th>Valor Total</th><th>Status</th><th>Ações</th></tr>
-                </thead>
-                <tbody id="pedidos-tbody"> 
-                    <tr><td colspan="4">Carregando pedidos...</td></tr>
-                </tbody>
+                <thead><tr><th>Cliente</th><th>Valor Total</th><th>Status</th><th>Ações</th></tr></thead>
+                <tbody id="pedidos-tbody"><tr><td colspan="4">Carregando...</td></tr></tbody>
             </table>
-        </div>
-    `;
+        </div>`;
 
     try {
-        // 2. Busca os dados dos pedidos no Firestore
         const querySnapshot = await getDocs(collection(db, "pedidos"));
         const pedidos = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        // 3. Calcula as estatísticas
         const hoje = new Date().setHours(0, 0, 0, 0);
-        let rendaMensal = 0;
-        let pedidosHoje = 0;
+        let rendaMensal = 0, pedidosHoje = 0;
 
-        pedidos.forEach(pedido => {
-            // Simplificação: considera todos os pedidos para a renda mensal
-            rendaMensal += pedido.valorTotal;
-            // Verifica se o pedido foi feito hoje
-            if (pedido.data.toDate().setHours(0, 0, 0, 0) === hoje) {
+        pedidos.forEach(p => {
+            rendaMensal += p.valorTotal;
+            if (p.data && p.data.toDate().setHours(0, 0, 0, 0) === hoje) {
                 pedidosHoje++;
             }
         });
 
         const ticketMedio = pedidos.length > 0 ? rendaMensal / pedidos.length : 0;
 
-        // 4. Atualiza os cards de estatísticas
         contentElement.querySelector('#renda-mensal').setAttribute('value', formatCurrency(rendaMensal));
         contentElement.querySelector('#pedidos-dia').setAttribute('value', pedidosHoje);
         contentElement.querySelector('#ticket-medio').setAttribute('value', formatCurrency(ticketMedio));
+        
+        // Mock de clientes
+        contentElement.querySelector('#total-clientes').setAttribute('value', 315);
 
-        // 5. Preenche a tabela de pedidos
         const tbody = contentElement.querySelector('#pedidos-tbody');
         if (pedidos.length > 0) {
-            tbody.innerHTML = pedidos.slice(0, 5).map(pedido => `
+            tbody.innerHTML = pedidos.slice(0, 5).map(p => `
                 <tr>
-                    <td>${pedido.cliente}</td>
-                    <td>${formatCurrency(pedido.valorTotal)}</td>
-                    <td>${pedido.status}</td>
+                    <td>${p.cliente}</td>
+                    <td>${formatCurrency(p.valorTotal)}</td>
+                    <td>${p.status}</td>
                     <td class="table-actions">
                         <button title="Editar"><span class="material-symbols-outlined">edit</span></button>
                         <button title="Excluir"><span class="material-symbols-outlined">delete</span></button>
                     </td>
-                </tr>
-            `).join('');
+                </tr>`).join('');
         } else {
             tbody.innerHTML = `<tr><td colspan="4">Nenhum pedido encontrado.</td></tr>`;
         }
-
     } catch (error) {
-        console.error("Erro ao buscar pedidos: ", error);
-        const tbody = contentElement.querySelector('#pedidos-tbody');
-        if (tbody) {
-            tbody.innerHTML = `<tr><td colspan="4" style="color: red;">Erro ao carregar os pedidos. Verifique o console.</td></tr>`;
-        }
+        console.error("Erro ao buscar dados para o dashboard: ", error);
+        contentElement.querySelector('#pedidos-tbody').innerHTML = `<tr><td colspan="4" class="error">Erro ao carregar pedidos.</td></tr>`;
     }
 };
 
+/**
+ * Renderiza a página completa de Pedidos.
+ * @param {HTMLElement} contentElement
+ */
+const renderPedidos = async (contentElement) => {
+    contentElement.innerHTML = `
+        <div class="page-header">
+            <h2>Pedidos</h2>
+            <div class="header-actions">
+                 <button class="btn btn-primary"><span class="material-symbols-outlined">add</span>Novo Pedido</button>
+            </div>
+        </div>
+        <div class="content-section">
+             <table class="responsive-table">
+                <thead><tr><th>Cliente</th><th>Valor</th><th>Data</th><th>Status</th><th>Ações</th></tr></thead>
+                <tbody id="pedidos-full-tbody"><tr><td colspan="5">Carregando pedidos...</td></tr></tbody>
+            </table>
+        </div>`;
+
+    try {
+        const querySnapshot = await getDocs(collection(db, "pedidos"));
+        const pedidos = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const tbody = contentElement.querySelector('#pedidos-full-tbody');
+        if (pedidos.length > 0) {
+            tbody.innerHTML = pedidos.map(p => `
+                <tr>
+                    <td>${p.cliente}</td>
+                    <td>${formatCurrency(p.valorTotal)}</td>
+                    <td>${formatDate(p.data)}</td>
+                    <td>${p.status}</td>
+                    <td class="table-actions">
+                        <button title="Editar"><span class="material-symbols-outlined">edit</span></button>
+                        <button title="Excluir"><span class="material-symbols-outlined">delete</span></button>
+                    </td>
+                </tr>`).join('');
+        } else {
+            tbody.innerHTML = `<tr><td colspan="5">Nenhum pedido encontrado.</td></tr>`;
+        }
+    } catch (error) {
+         console.error("Erro ao buscar pedidos: ", error);
+        contentElement.querySelector('#pedidos-full-tbody').innerHTML = `<tr><td colspan="5" class="error">Erro ao carregar.</td></tr>`;
+    }
+};
+
+/**
+ * Renderiza a página de Clientes (placeholder). 
+ * @param {HTMLElement} contentElement
+ */
+const renderClientes = (contentElement) => {
+    contentElement.innerHTML = `
+        <div class="page-header">
+            <h2>Clientes</h2>
+            <div class="header-actions">
+                 <button class="btn btn-primary"><span class="material-symbols-outlined">add</span>Novo Cliente</button>
+            </div>
+        </div>
+        <div class="content-section">
+             <table class="responsive-table">
+                <thead><tr><th>Nome</th><th>Email</th><th>Telefone</th><th>Ações</th></tr></thead>
+                <tbody><tr><td colspan="4">Funcionalidade em desenvolvimento.</td></tr></tbody>
+            </table>
+        </div>`;
+}
+
+/**
+ * Renderiza a página de Catálogo (placeholder).
+ * @param {HTMLElement} contentElement
+ */
+const renderCatalogo = (contentElement) => {
+    contentElement.innerHTML = `
+        <div class="page-header">
+            <h2>Catálogo de Produtos</h2>
+            <div class="header-actions">
+                 <button class="btn btn-primary"><span class="material-symbols-outlined">add</span>Novo Produto</button>
+            </div>
+        </div>
+        <div class="product-grid">
+            ${[1,2,3,4].map(() => `
+            <div class="product-card">
+                <div class="product-image"><span class="material-symbols-outlined">image</span></div>
+                <div class="product-info">
+                    <h4>Nome do Produto</h4>
+                    <p>R$ 99,99</p>
+                </div>
+            </div>`).join('')}
+        </div>`;
+}
+
+// --- ROTEADOR E LÓGICA PRINCIPAL ---
+
 const pages = {
     dashboard: renderDashboard,
-    pedidos: (el) => el.innerHTML = `<div class="page-header"><h2>Pedidos</h2></div><p>Em breve...</p>`,
-    clientes: (el) => el.innerHTML = `<div class="page-header"><h2>Clientes</h2></div><p>Em breve...</p>`,
-    catalogo: (el) => el.innerHTML = `<div class="page-header"><h2>Catálogo</h2></div><p>Em breve...</p>`,
+    pedidos: renderPedidos,
+    clientes: renderClientes,
+    catalogo: renderCatalogo,
     'novo-pedido': (el) => el.innerHTML = `<div class="page-header"><h2>Novo Pedido</h2></div><p>Em breve...</p>`
 };
 
@@ -123,16 +187,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof renderFunction === 'function') {
             renderFunction(appContent);
         } else {
-            appContent.innerHTML = '<p>Página não encontrada.</p>';
+            app-content.innerHTML = '<p>Página não encontrada.</p>';
         }
         
-        navLinks.forEach(link => {
-            link.classList.toggle('active', link.dataset.page === page);
-        });
-
-        if (sidebar.classList.contains('open')) {
-            sidebar.classList.remove('open');
-        }
+        navLinks.forEach(link => link.classList.toggle('active', link.dataset.page === page));
+        if (sidebar.classList.contains('open')) sidebar.classList.remove('open');
     };
 
     navLinks.forEach(link => {
