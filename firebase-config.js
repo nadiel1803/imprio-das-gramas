@@ -4,12 +4,12 @@ import { getFirestore } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-
 
 // TODO: Adicione a configuração do seu projeto Firebase aqui
 const firebaseConfig = {
-  apiKey: "SUA_API_KEY",
-  authDomain: "SEU_AUTH_DOMAIN",
-  projectId: "SEU_PROJECT_ID",
-  storageBucket: "SEU_STORAGE_BUCKET",
-  messagingSenderId: "SEU_MESSAGING_SENDER_ID",
-  appId: "SEU_APP_ID"
+  apiKey: "AIzaSyBzimuo5G6XVX_0ffYDA0NenCEQ7cCh2VI",
+  authDomain: "imprio-das-gramas-930665-e09b4.firebaseapp.com",
+  projectId: "imprio-das-gramas-930665-e09b4",
+  storageBucket: "imprio-das-gramas-930665-e09b4.firebasestorage.app",
+  messagingSenderId: "77746400435",
+  appId: "1:77746400435:web:e077a31b070b6b64a214c6"
 };
 
 // Inicialize o Firebase
